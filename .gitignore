@@ -33,3 +33,5 @@ build/
 .vscode/
 .env
 application-local.yml
+docker-compose.yml
+application.properties
