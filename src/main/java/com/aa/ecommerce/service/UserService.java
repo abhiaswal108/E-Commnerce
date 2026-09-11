@@ -9,6 +9,8 @@ import com.aa.ecommerce.entity.User;
 import com.aa.ecommerce.enums.Role;
 import com.aa.ecommerce.exception.DuplicateResourceException;
 import com.aa.ecommerce.exception.InvalidCredentialsException;
+import com.aa.ecommerce.exception.ResourceNotFoundException;
+import com.aa.ecommerce.notification.EmailService;
 import com.aa.ecommerce.repository.UserRepository;
 import com.aa.ecommerce.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class UserService {
     private final UserRepository ur;
     private final PasswordEncoder pe;
     private final JwtService js;
+    private final EmailService emailService;
     public UserResponseDTO registerUser(RegisterRequestDTO dto){
         if (ur.findByEmail(dto.getEmail()).isPresent()) {
             throw new DuplicateResourceException("Email already exists, please login");
@@ -32,6 +35,7 @@ public class UserService {
         u.setPassword(pe.encode(dto.getPassword()));
         u.setRoles(Set.of(Role.CUSTOMER));
         User savedUser=ur.save(u);
+        emailService.sendWelcomeEmail(savedUser.getEmail());
         return mapToUserResponseDTO(savedUser);
 
     }
@@ -53,5 +57,11 @@ public class UserService {
         user.setEmail(u.getEmail());
         user.setRole(u.getRoles());
         return user;
+    }
+    public UserResponseDTO promoteToAdmin(Long userId) {
+        User u=ur.findById(userId).orElseThrow(()-> new ResourceNotFoundException(("No user exists with this user id "+userId)));
+        u.getRoles().add(Role.ADMIN);
+        User savedUser=ur.save(u);
+        return mapToUserResponseDTO(savedUser);
     }
 }

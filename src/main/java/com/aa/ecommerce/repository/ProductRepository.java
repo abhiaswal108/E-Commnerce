@@ -16,4 +16,6 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product,Long>, JpaSpecificationExecutor<Product> {
     @EntityGraph(attributePaths = {"category"})
     Page<Product> findAll(Pageable pageable);
+
+    List<Product> findByStockQuantityLessThan(Integer threshold);
 }

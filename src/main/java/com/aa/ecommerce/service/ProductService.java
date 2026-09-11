@@ -9,13 +9,23 @@ import com.aa.ecommerce.repository.CategoryRepository;
 import com.aa.ecommerce.repository.ProductRepository;
 import com.aa.ecommerce.specification.ProductSpecifications;
 
+
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +58,10 @@ public class ProductService {
         dto.setCategoryName(product.getCategory().getName());
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
+        dto.setImageUrl(product.getImageUrl());
         return dto;
     }
+    @Cacheable(value = "products", key = "#id")
     public ProductResponseDTO findProduct(Long id){
         Product p=productRepository.findById(id).
                 orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
@@ -73,6 +85,7 @@ public class ProductService {
         Page<ProductResponseDTO> dto=results .map(this::mapToResponseDTO);
         return dto;
     }
+    @CacheEvict(value = "products", key = "#id")
     public ProductResponseDTO updateProduct(Long id, ProductRequestDTO requestDTO) {
         Product p=productRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         Category c=categoryRepository.findById(requestDTO.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("category not found with id: " + requestDTO.getCategoryId()));
@@ -88,9 +101,42 @@ public class ProductService {
 
 
     }
+    @CacheEvict(value = "products", key = "#id")
     public void deleteProduct(Long id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         productRepository.delete(p);
+    }
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+    public ProductResponseDTO uploadImage(Long id, MultipartFile file) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+        if (product.getImageUrl() != null) {
+            Path oldFilePath = Paths.get(uploadDir).resolve(
+                    Paths.get(product.getImageUrl()).getFileName().toString()
+            );
+            try {
+                Files.deleteIfExists(oldFilePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to store file", e);
+            }
+        }
+        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        Path uploadPath = Paths.get(uploadDir);
+
+        try {
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            Path filePath = uploadPath.resolve(filename);
+            file.transferTo(filePath.toFile());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store file", e);
+        }
+
+        product.setImageUrl("/uploads/products/" + filename);
+        Product saved = productRepository.save(product);
+        return mapToResponseDTO(saved);
     }
 }

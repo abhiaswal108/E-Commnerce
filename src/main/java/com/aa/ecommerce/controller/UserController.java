@@ -10,10 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -29,5 +27,11 @@ public class UserController {
     public ResponseEntity<LoginResponseDTO> loginUser(@Valid @RequestBody LoginRequestDTO user){
         LoginResponseDTO loginUser=us.loginUser(user);
         return new ResponseEntity<>(loginUser, HttpStatus.OK);
+    }
+    @PatchMapping("/{userId}/promote")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponseDTO> promoteToAdmin(@PathVariable Long userId) {
+        UserResponseDTO user=us.promoteToAdmin(userId);
+        return  new ResponseEntity<>(user,HttpStatus.OK);
     }
 }
